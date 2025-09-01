@@ -13,7 +13,7 @@ permissions:
 jobs:
   benchmark-ecr:
     name: ${{ matrix.region }} - ${{ matrix.index }}
-    runs-on: ubicloud
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
