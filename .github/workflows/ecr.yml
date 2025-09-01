@@ -36,24 +36,24 @@ jobs:
 
       - name: Tag image for ECR
         run: |
-          docker tag hello-world ${{ steps.login-ecr.outputs.registry }}/${{ matrix.region }}:${{ github.run_id }}
+          docker tag hello-world ${{ steps.login-ecr.outputs.registry }}/ubicloud-benchmark/${{ matrix.region }}:${{ github.run_id }}
 
       - name: Benchmark push to ECR
         run: |
           echo "--- Pushing to ${{ matrix.region }} ---"
-          time docker push ${{ steps.login-ecr.outputs.registry }}/${{ matrix.region }}:${{ github.run_id }}
+          time docker push ${{ steps.login-ecr.outputs.registry }}/ubicloud-benchmark/${{ matrix.region }}:${{ github.run_id }}
           echo "------------------------------------"
 
       - name: Remove local image
-        run: docker rmi ${{ steps.login-ecr.outputs.registry }}/${{ matrix.region }}:${{ github.run_id }}
+        run: docker rmi ${{ steps.login-ecr.outputs.registry }}/ubicloud-benchmark/${{ matrix.region }}:${{ github.run_id }}
 
       - name: Benchmark pull from ECR
         run: |
           echo "--- Pulling from ${{ matrix.region }} ---"
-          time docker pull ${{ steps.login-ecr.outputs.registry }}/${{ matrix.region }}:${{ github.run_id }}
+          time docker pull ${{ steps.login-ecr.outputs.registry }}/ubicloud-benchmark/${{ matrix.region }}:${{ github.run_id }}
           echo "------------------------------------"
 
       - name: Clean up ECR image
         if: always()
         run: |
-          aws ecr batch-delete-image --repository-name ${{ matrix.region }} --image-ids imageTag=${{ github.run_id }} --region ${{ matrix.region }}
+          aws ecr batch-delete-image --repository-name "ubicloud-benchmark/${{ matrix.region }}" --image-ids imageTag=${{ github.run_id }} --region ${{ matrix.region }}
