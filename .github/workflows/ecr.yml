@@ -12,10 +12,14 @@ permissions:
 
 jobs:
   benchmark-ecr:
+    name: ${{ matrix.region }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         region: [eu-central-1]
+    env:
+      REPOSITORY_NAME: "ubicloud-benchmark/${{ matrix.region }}"
+      IMAGE_NAME: "hello-world"
 
     steps:
       - name: Checkout
@@ -31,29 +35,51 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Output full registry URL
+        id: registry
+        run: |
+          image_url="${{ steps.login-ecr.outputs.registry }}/${{ env.REPOSITORY_NAME }}:${{ github.run_id }}"
+          echo "image_url=$image_url" >> $GITHUB_OUTPUT
+
       - name: Pull image from Docker Hub
-        run: docker pull hello-world
+        run: docker pull ${{ env.IMAGE_NAME }}
 
       - name: Tag image for ECR
         run: |
-          docker tag hello-world ${{ steps.login-ecr.outputs.registry }}/ubicloud-benchmark/${{ matrix.region }}:${{ github.run_id }}
+          docker tag ${{ env.IMAGE_NAME }} ${{ steps.registry.outputs.image_url }}
 
       - name: Benchmark push to ECR
+        id: push
         run: |
           echo "--- Pushing to ${{ matrix.region }} ---"
-          time docker push ${{ steps.login-ecr.outputs.registry }}/ubicloud-benchmark/${{ matrix.region }}:${{ github.run_id }}
+          TIME_OUTPUT=$( { time docker push ${{ steps.registry.outputs.image_url }} > /dev/null; } 2>&1 )
+          PUSH_TIME=$(echo "$TIME_OUTPUT" | grep real | awk '{print $2}')
+          echo "push_time=$PUSH_TIME" >> $GITHUB_OUTPUT
+          echo "Push to ${{ matrix.region }} took $PUSH_TIME"
           echo "------------------------------------"
 
       - name: Remove local image
-        run: docker rmi ${{ steps.login-ecr.outputs.registry }}/ubicloud-benchmark/${{ matrix.region }}:${{ github.run_id }}
+        run: docker rmi ${{ steps.registry.outputs.image_url }}
 
       - name: Benchmark pull from ECR
+        id: pull
         run: |
           echo "--- Pulling from ${{ matrix.region }} ---"
-          time docker pull ${{ steps.login-ecr.outputs.registry }}/ubicloud-benchmark/${{ matrix.region }}:${{ github.run_id }}
+          TIME_OUTPUT=$( { time docker pull ${{ steps.registry.outputs.image_url }} > /dev/null; } 2>&1 )
+          PULL_TIME=$(echo "$TIME_OUTPUT" | grep real | awk '{print $2}')
+          echo "pull_time=$PULL_TIME" >> $GITHUB_OUTPUT
+          echo "Pull from ${{ matrix.region }} took $PULL_TIME"
           echo "------------------------------------"
+
+      - name: Update Job Summary
+        run: |
+          echo "## Benchmark Results for ${{ matrix.region }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Operation | Time |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Push | `${{ steps.push.outputs.push_time }}` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pull | `${{ steps.pull.outputs.pull_time }}` |" >> $GITHUB_STEP_SUMMARY
 
       - name: Clean up ECR image
         if: always()
         run: |
-          aws ecr batch-delete-image --repository-name "ubicloud-benchmark/${{ matrix.region }}" --image-ids imageTag=${{ github.run_id }} --region ${{ matrix.region }}
+          aws ecr batch-delete-image --repository-name ${{ env.REPOSITORY_NAME }} --image-ids imageTag=${{ github.run_id }} --region ${{ matrix.region }}
