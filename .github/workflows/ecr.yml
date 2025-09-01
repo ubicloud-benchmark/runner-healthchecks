@@ -51,12 +51,12 @@ jobs:
       - name: Benchmark push to ECR
         id: push
         run: |
-          echo "--- Pushing to ${{ matrix.region }} ---"
-          TIME_OUTPUT=$( { time docker push ${{ steps.registry.outputs.image_url }} > /dev/null; } 2>&1 )
-          PUSH_TIME=$(echo "$TIME_OUTPUT" | grep real | awk '{print $2}')
-          echo "push_time=$PUSH_TIME" >> $GITHUB_OUTPUT
-          echo "Push to ${{ matrix.region }} took $PUSH_TIME"
-          echo "------------------------------------"
+          start_time=$(date +%s)
+          docker push ${{ steps.registry.outputs.image_url }}
+          end_time=$(date +%s)
+          PUSH_TIME=$((end_time - start_time))
+          echo "push_time=${PUSH_TIME}s" >> $GITHUB_OUTPUT
+          echo "Push to ${{ matrix.region }} took ${PUSH_TIME}s"
 
       - name: Remove local image
         run: docker rmi ${{ steps.registry.outputs.image_url }}
@@ -64,20 +64,19 @@ jobs:
       - name: Benchmark pull from ECR
         id: pull
         run: |
-          echo "--- Pulling from ${{ matrix.region }} ---"
-          TIME_OUTPUT=$( { time docker pull ${{ steps.registry.outputs.image_url }} > /dev/null; } 2>&1 )
-          PULL_TIME=$(echo "$TIME_OUTPUT" | grep real | awk '{print $2}')
-          echo "pull_time=$PULL_TIME" >> $GITHUB_OUTPUT
-          echo "Pull from ${{ matrix.region }} took $PULL_TIME"
-          echo "------------------------------------"
+          start_time=$(date +%s)
+          docker pull ${{ steps.registry.outputs.image_url }}
+          end_time=$(date +%s)
+          PULL_TIME=$((end_time - start_time))
+          echo "pull_time=${PULL_TIME}s" >> $GITHUB_OUTPUT
+          echo "Pull from ${{ matrix.region }} took ${PULL_TIME}s"
 
       - name: Update Job Summary
         run: |
-          echo "## Benchmark Results for ${{ matrix.region }}" >> $GITHUB_STEP_SUMMARY
           echo "| Operation | Time |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Push | `${{ steps.push.outputs.push_time }}` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Pull | `${{ steps.pull.outputs.pull_time }}` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Push | ${{ steps.push.outputs.push_time }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pull | ${{ steps.pull.outputs.pull_time }} |" >> $GITHUB_STEP_SUMMARY
 
       - name: Clean up ECR image
         if: always()
