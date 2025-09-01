@@ -12,19 +12,13 @@ permissions:
 
 jobs:
   benchmark-ecr:
-    name: ${{ matrix.region }}
+    name: ${{ matrix.region }} - ${{ matrix.index }}
     runs-on: ubicloud
     strategy:
       fail-fast: false
       matrix:
-        region: [
-          eu-central-1, eu-west-2, eu-north-1, us-east-1, us-east-2, us-west-2, ap-southeast-2, ap-northeast-1, sa-east-1,
-          eu-central-1, eu-west-2, eu-north-1, us-east-1, us-east-2, us-west-2, ap-southeast-2, ap-northeast-1, sa-east-1,
-          eu-central-1, eu-west-2, eu-north-1, us-east-1, us-east-2, us-west-2, ap-southeast-2, ap-northeast-1, sa-east-1,
-          eu-central-1, eu-west-2, eu-north-1, us-east-1, us-east-2, us-west-2, ap-southeast-2, ap-northeast-1, sa-east-1,
-          eu-central-1, eu-west-2, eu-north-1, us-east-1, us-east-2, us-west-2, ap-southeast-2, ap-northeast-1, sa-east-1,
-          eu-central-1, eu-west-2, eu-north-1, us-east-1, us-east-2, us-west-2, ap-southeast-2, ap-northeast-1, sa-east-1,
-        ]
+        region: [eu-central-1, eu-west-2, eu-north-1, us-east-1, us-east-2, us-west-2, ap-southeast-2, ap-northeast-1, sa-east-1]
+        index: [1, 2, 3, 4, 5]
     env:
       REPOSITORY_NAME: "ubicloud-benchmark/${{ matrix.region }}"
       IMAGE_NAME: "python:latest"
@@ -46,7 +40,7 @@ jobs:
       - name: Output full registry URL
         id: registry
         run: |
-          image_url="${{ steps.login-ecr.outputs.registry }}/${{ env.REPOSITORY_NAME }}:${{ github.run_id }}"
+          image_url="${{ steps.login-ecr.outputs.registry }}/${{ env.REPOSITORY_NAME }}:${{ github.run_id }}-${{ matrix.index }}"
           echo "image_url=$image_url" >> $GITHUB_OUTPUT
 
       - name: Pull image from Docker Hub
@@ -91,7 +85,7 @@ jobs:
       - name: Upload benchmark result
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-result-${{ matrix.region }}
+          name: benchmark-result-${{ matrix.region }}-${{ matrix.index }}
           path: benchmark.txt
 
       - name: Clean up ECR image
