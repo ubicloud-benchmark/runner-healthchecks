@@ -1,0 +1,59 @@
+name: ECR Benchmark
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  benchmark-ecr:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        region: [eu-central-1]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.3.1
+        with:
+          role-to-assume: arn:aws:iam::141729832908:role/ubicloud-benchmark-role
+          aws-region: ${{ matrix.region }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Pull image from Docker Hub
+        run: docker pull hello-world
+
+      - name: Tag image for ECR
+        run: |
+          docker tag hello-world ${{ steps.login-ecr.outputs.registry }}/${{ matrix.region }}:${{ github.run_id }}
+
+      - name: Benchmark push to ECR
+        run: |
+          echo "--- Pushing to ${{ matrix.region }} ---"
+          time docker push ${{ steps.login-ecr.outputs.registry }}/${{ matrix.region }}:${{ github.run_id }}
+          echo "------------------------------------"
+
+      - name: Remove local image
+        run: docker rmi ${{ steps.login-ecr.outputs.registry }}/${{ matrix.region }}:${{ github.run_id }}
+
+      - name: Benchmark pull from ECR
+        run: |
+          echo "--- Pulling from ${{ matrix.region }} ---"
+          time docker pull ${{ steps.login-ecr.outputs.registry }}/${{ matrix.region }}:${{ github.run_id }}
+          echo "------------------------------------"
+
+      - name: Clean up ECR image
+        if: always()
+        run: |
+          aws ecr batch-delete-image --repository-name ${{ matrix.region }} --image-ids imageTag=${{ github.run_id }} --region ${{ matrix.region }}
