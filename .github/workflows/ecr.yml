@@ -13,7 +13,7 @@ permissions:
 jobs:
   benchmark-ecr:
     name: ${{ matrix.region }} - ${{ matrix.index }}
-    runs-on: ubuntu-22.04
+    runs-on: ubicloud
     strategy:
       fail-fast: false
       matrix:
@@ -94,6 +94,7 @@ jobs:
           aws ecr batch-delete-image --repository-name ${{ env.REPOSITORY_NAME }} --image-ids imageTag=${{ github.run_id }} --region ${{ matrix.region }}
 
   report:
+    if: always()
     needs: benchmark-ecr
     runs-on: ubuntu-latest
     steps:
