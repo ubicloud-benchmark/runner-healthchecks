@@ -15,11 +15,12 @@ jobs:
     name: ${{ matrix.region }}
     runs-on: ubicloud
     strategy:
+      fail-fast: false
       matrix:
         region: [eu-central-1, eu-west-2, eu-north-1, us-east-1, us-east-2, us-west-2, ap-southeast-2, ap-northeast-1, sa-east-1]
     env:
       REPOSITORY_NAME: "ubicloud-benchmark/${{ matrix.region }}"
-      IMAGE_NAME: "hello-world"
+      IMAGE_NAME: "python:latest"
 
     steps:
       - name: Checkout
@@ -74,14 +75,39 @@ jobs:
           echo "pull_time=${PULL_TIME}s" >> $GITHUB_OUTPUT
           echo "Pull from ${{ matrix.region }} took ${PULL_TIME}s"
 
-      - name: Update Job Summary
+      - name: Save benchmark result
         run: |
-          echo "| Operation | Time |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Push | ${{ steps.push.outputs.push_time }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Pull | ${{ steps.pull.outputs.pull_time }} |" >> $GITHUB_STEP_SUMMARY
+          echo "region=${{ matrix.region }}" > benchmark.txt
+          echo "push_time=${{ steps.push.outputs.push_time }}" >> benchmark.txt
+          echo "pull_time=${{ steps.pull.outputs.pull_time }}" >> benchmark.txt
+
+      - name: Upload benchmark result
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-result-${{ matrix.region }}
+          path: benchmark.txt
 
       - name: Clean up ECR image
         if: always()
         run: |
           aws ecr batch-delete-image --repository-name ${{ env.REPOSITORY_NAME }} --image-ids imageTag=${{ github.run_id }} --region ${{ matrix.region }}
+
+  report:
+    needs: benchmark-ecr
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          path: benchmark-results
+
+      - name: Generate summary table
+        run: |
+          echo "| Region | Push Time | Pull Time |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          for dir in benchmark-results/benchmark-result-*; do
+            region=$(grep region "$dir/benchmark.txt" | cut -d= -f2)
+            push_time=$(grep push_time "$dir/benchmark.txt" | cut -d= -f2)
+            pull_time=$(grep pull_time "$dir/benchmark.txt" | cut -d= -f2)
+            echo "| $region | $push_time | $pull_time |" >> $GITHUB_STEP_SUMMARY
+          done
