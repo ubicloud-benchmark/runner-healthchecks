@@ -51,23 +51,26 @@ jobs:
       - name: Benchmark push to ECR
         id: push
         run: |
-          start_time=$(date +%s)
+          start_time=$(date +%s%N)
           docker push ${{ steps.registry.outputs.image_url }}
-          end_time=$(date +%s)
-          PUSH_TIME=$((end_time - start_time))
+          end_time=$(date +%s%N)
+          PUSH_TIME=$(echo "scale=3; ($end_time - $start_time) / 1000000000" | bc)
           echo "push_time=${PUSH_TIME}s" >> $GITHUB_OUTPUT
           echo "Push to ${{ matrix.region }} took ${PUSH_TIME}s"
 
-      - name: Remove local image
-        run: docker rmi ${{ steps.registry.outputs.image_url }}
+      - name: Remove local images for clean pull benchmark
+        run: |
+          docker rmi ${{ steps.registry.outputs.image_url }}
+          docker rmi ${{ env.IMAGE_NAME }}
+          docker system prune -af
 
       - name: Benchmark pull from ECR
         id: pull
         run: |
-          start_time=$(date +%s)
+          start_time=$(date +%s%N)
           docker pull ${{ steps.registry.outputs.image_url }}
-          end_time=$(date +%s)
-          PULL_TIME=$((end_time - start_time))
+          end_time=$(date +%s%N)
+          PULL_TIME=$(echo "scale=3; ($end_time - $start_time) / 1000000000" | bc)
           echo "pull_time=${PULL_TIME}s" >> $GITHUB_OUTPUT
           echo "Pull from ${{ matrix.region }} took ${PULL_TIME}s"
 
