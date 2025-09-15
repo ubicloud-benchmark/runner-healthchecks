@@ -68,7 +68,7 @@ jobs:
       - name: Generate summary table
         run: |
           echo "| Push Time | Pull Time |" >> $GITHUB_STEP_SUMMARY
-          echo |---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| ${{ steps.push.outputs.push_time }} | ${{ steps.pull.outputs.pull_time }} |" >> $GITHUB_STEP_SUMMARY
 
       - uses: actions/delete-package-versions@v5
