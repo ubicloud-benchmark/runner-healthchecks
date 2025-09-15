@@ -71,11 +71,17 @@ jobs:
           echo "pull_time=${PULL_TIME}s" >> $GITHUB_OUTPUT
           echo "Pull took ${PULL_TIME}s"
 
-      - name: Generate summary table
+      - name: Save benchmark result
         run: |
-          echo "| Push Time | Pull Time |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| ${{ steps.push.outputs.push_time }} | ${{ steps.pull.outputs.pull_time }} |" >> $GITHUB_STEP_SUMMARY
+          echo "index=${{ matrix.index }}" > benchmark.txt
+          echo "push_time=${{ steps.push.outputs.push_time }}" >> benchmark.txt
+          echo "pull_time=${{ steps.pull.outputs.pull_time }}" >> benchmark.txt
+
+      - name: Upload benchmark result
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-result-${{ matrix.index }}
+          path: benchmark.txt
 
       - name: Clean up GHCR image
         if: always()
@@ -87,3 +93,24 @@ jobs:
               package_name: process.env.PACKAGE_NAME,
               org: context.repo.owner
             })
+
+  report:
+    if: always()
+    needs: benchmark-ghcr
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          path: benchmark-results
+
+      - name: Generate summary table
+        run: |
+          echo "| Index | Push Time | Pull Time |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          for dir in benchmark-results/benchmark-result-*; do
+            index=$(grep index "$dir/benchmark.txt" | cut -d= -f2)
+            push_time=$(grep push_time "$dir/benchmark.txt" | cut -d= -f2)
+            pull_time=$(grep pull_time "$dir/benchmark.txt" | cut -d= -f2)
+            echo "| $index | $push_time | $pull_time |" >> $GITHUB_STEP_SUMMARY
+          done
