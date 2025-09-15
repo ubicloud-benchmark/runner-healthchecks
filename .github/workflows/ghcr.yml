@@ -1,0 +1,79 @@
+name: ghcr Benchmark
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+jobs:
+  benchmark-ghcr:
+    runs-on: ubicloud
+
+    env:
+      REPOSITORY_NAME: "ghcr.io/ubicloud-benchmark/benchmark-ghcr"
+      IMAGE_NAME: "python:latest"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Output full registry URL
+        id: registry
+        run: |
+          image_url="${{ env.REPOSITORY_NAME }}:${{ github.run_id }}"
+          echo "image_url=$image_url" >> $GITHUB_OUTPUT
+
+      - name: Pull image from Docker Hub
+        run: docker pull ${{ env.IMAGE_NAME }}
+
+      - name: Tag image for GHCR
+        run: |
+          docker tag ${{ env.IMAGE_NAME }} ${{ steps.registry.outputs.image_url }}
+
+      - name: Benchmark push to GHCR
+        id: push
+        run: |
+          START=$(date +%s.%N)
+          docker push ${{ steps.registry.outputs.image_url }}
+          END=$(date +%s.%N)
+          PUSH_TIME=$(echo "$END - $START" | bc -l | xargs printf "%.2f")
+          echo "push_time=${PUSH_TIME}s" >> $GITHUB_OUTPUT
+          echo "Push took ${PUSH_TIME}s"
+
+      - name: Remove local images for clean pull benchmark
+        run: |
+          docker rmi ${{ steps.registry.outputs.image_url }}
+          docker rmi ${{ env.IMAGE_NAME }}
+          docker system prune -af
+
+      - name: Benchmark pull from GHCR
+        id: pull
+        run: |
+          START=$(date +%s.%N)
+          docker pull ${{ steps.registry.outputs.image_url }}
+          END=$(date +%s.%N)
+          PULL_TIME=$(echo "$END - $START" | bc -l | xargs printf "%.2f")
+          echo "pull_time=${PULL_TIME}s" >> $GITHUB_OUTPUT
+          echo "Pull took ${PULL_TIME}s"
+
+      - name: Generate summary table
+        run: |
+          echo "| Push Time | Pull Time |" >> $GITHUB_STEP_SUMMARY
+          echo |---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| ${{ steps.push.outputs.push_time }} | ${{ steps.pull.outputs.pull_time }} |" >> $GITHUB_STEP_SUMMARY
+
+      - uses: actions/delete-package-versions@v5
+        if: always()
+        with: 
+          package-name: 'benchmark-ghcr'
+          package-type: 'container'
+          min-versions-to-keep: 0
