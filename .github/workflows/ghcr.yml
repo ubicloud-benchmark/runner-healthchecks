@@ -14,9 +14,14 @@ permissions:
 jobs:
   benchmark-ghcr:
     runs-on: ubicloud
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [1,2,3,4,5]
 
     env:
-      REPOSITORY_NAME: "ghcr.io/ubicloud-benchmark/benchmark-ghcr"
+      PACKAGE_NAME: "benchmark-ghcr-${{ matrix.index }}"
+      REPOSITORY_NAME: "ghcr.io/ubicloud-benchmark/benchmark-ghcr-${{ matrix.index }}"
       IMAGE_NAME: "python:latest"
 
     steps:
@@ -78,6 +83,6 @@ jobs:
           script: |
             github.rest.packages.deletePackageForOrg({
               package_type: 'container',
-              package_name: 'benchmark-ghcr',
+              package_name: process.env.PACKAGE_NAME,
               org: context.repo.owner
             })
