@@ -71,9 +71,13 @@ jobs:
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| ${{ steps.push.outputs.push_time }} | ${{ steps.pull.outputs.pull_time }} |" >> $GITHUB_STEP_SUMMARY
 
-      - uses: actions/delete-package-versions@v5
+      - name: Clean up GHCR image
         if: always()
-        with: 
-          package-name: 'benchmark-ghcr'
-          package-type: 'container'
-          min-versions-to-keep: 0
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.packages.deletePackageForOrg({
+              package_type: 'container',
+              package_name: 'benchmark-ghcr',
+              org: context.repo.owner
+            })
