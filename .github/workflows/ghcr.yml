@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   benchmark-ghcr:
+    name: GHCR Benchmark ${{ matrix.index }}
     runs-on: ubicloud
     strategy:
       fail-fast: false
@@ -20,8 +21,8 @@ jobs:
         index: [1,2,3,4,5]
 
     env:
-      PACKAGE_NAME: "benchmark-ghcr-${{ matrix.index }}"
-      REPOSITORY_NAME: "ghcr.io/ubicloud-benchmark/benchmark-ghcr-${{ matrix.index }}"
+      PACKAGE_NAME: "benchmark-ghcr-${{ github.run_id }}-${{ matrix.index }}"
+      REPOSITORY_NAME: "ghcr.io/ubicloud-benchmark/benchmark-ghcr-${{ github.run_id }}-${{ matrix.index }}"
       IMAGE_NAME: "python:latest"
 
     steps:
