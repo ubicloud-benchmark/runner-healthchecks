@@ -13,16 +13,17 @@ permissions:
 
 jobs:
   benchmark-ghcr:
-    name: GHCR Benchmark ${{ matrix.index }}
-    runs-on: ubicloud
+    name: GHCR Benchmark  ${{ matrix.runner }} ${{ matrix.index }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        runner: [ubuntu-22.04, ubicloud]
         index: [1,2,3,4,5]
 
     env:
-      PACKAGE_NAME: "benchmark-ghcr-${{ github.run_id }}-${{ matrix.index }}"
-      REPOSITORY_NAME: "ghcr.io/ubicloud-benchmark/benchmark-ghcr-${{ github.run_id }}-${{ matrix.index }}"
+      PACKAGE_NAME: "benchmark-ghcr-${{ github.run_id }}-${{ matrix.runner }}-${{ matrix.index }}"
+      REPOSITORY_NAME: "ghcr.io/ubicloud-benchmark/benchmark-ghcr-${{ github.run_id }}-${{ matrix.runner }}-${{ matrix.index }}"
       IMAGE_NAME: "python:latest"
 
     steps:
